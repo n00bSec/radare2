@@ -3317,6 +3317,7 @@ out_function:
 
 static struct r_bin_pe_section_t* PE_(r_bin_pe_get_sections)(struct PE_(r_bin_pe_obj_t)* bin) {
 	struct r_bin_pe_section_t* sections = NULL;
+	struct r_bin_pe_section_t* ret_sections = NULL;
 	PE_(image_section_header) * shdr;
 	int i, j, section_count = 0;
 
@@ -3331,6 +3332,9 @@ static struct r_bin_pe_section_t* PE_(r_bin_pe_get_sections)(struct PE_(r_bin_pe
 		}
 	}
 	sections = calloc (section_count + 1, sizeof(struct r_bin_pe_section_t));
+	// Need to fit in another section.
+	ret_sections = calloc (section_count + 2, sizeof(struct r_bin_pe_section_t));
+	
 	if (!sections) {
 		r_sys_perror ("malloc (sections)");
 		return NULL;
@@ -3392,8 +3396,19 @@ static struct r_bin_pe_section_t* PE_(r_bin_pe_get_sections)(struct PE_(r_bin_pe
 		j++;
 	}
 	sections[j].last = 1;
-	bin->num_sections = section_count;
-	return sections;
+	// We need to manually populate our first section, with incremented count.
+	bin->num_sections = section_count + 1;
+	memcpy(&ret_sections[1], sections, (section_count + 1) * sizeof(struct r_bin_pe_section_t));
+
+	// Set attributes
+	strcpy((char*)ret_sections[0].name, "hdr");
+	ret_sections[0].size = 0x1000;
+	ret_sections[0].vsize = 0x1000;
+	ret_sections[0].vaddr = 0x0;
+	ret_sections[0].paddr = 0x0;
+	ret_sections[0].flags = 0x40000000; // READABLE
+	free(sections);
+	return ret_sections;
 }
 
 char* PE_(r_bin_pe_get_subsystem)(struct PE_(r_bin_pe_obj_t)* bin) {
